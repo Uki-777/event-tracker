@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Tracker Analytics</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Event Tracker Analytics</h1>
+            <p>Śledź i analizuj lokalne wydarzenia</p>
+        </header>
+
+        <section class="form-section">
+            <h2>Dodaj nowe wydarzenie</h2>
+            <form id="event-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="event-name">Nazwa wydarzenia</label>
+                        <input type="text" id="event-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="event-location">Lokalizacja</label>
+                        <input type="text" id="event-location" required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="event-date">Data i czas</label>
+                        <input type="datetime-local" id="event-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="event-category">Kategoria</label>
+                        <select id="event-category" required>
+                            <option value="">Wybierz kategorię</option>
+                            <option value="concert">Koncert</option>
+                            <option value="sports">Sport</option>
+                            <option value="festival">Festyn</option>
+                            <option value="conference">Konferencja</option>
+                            <option value="other">Inne</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="event-description">Opis</label>
+                    <textarea id="event-description" rows="4"></textarea>
+                </div>
+                
+                <button type="submit">Dodaj wydarzenie</button>
+            </form>
+        </section>
+
+        <section class="analytics-section">
+            <h2>Analiza wydarzeń</h2>
+            <div class="charts">
+                <div class="chart-container">
+                    <h3>Liczba wydarzeń w czasie</h3>
+                    <canvas id="events-over-time-chart" class="chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Top lokalizacje</h3>
+                    <canvas id="top-locations-chart" class="chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Podział na kategorie</h3>
+                    <canvas id="categories-chart" class="chart"></canvas>
+                </div>
+            </div>
+            
+            <h3 style="margin-top: 40px;">Ostatnie wydarzenia</h3>
+            <table id="events-table">
+                <thead>
+                    <tr>
+                        <th>Nazwa</th>
+                        <th>Lokalizacja</th>
+                        <th>Data</th>
+                        <th>Kategoria</th>
+                    </tr>
+                </thead>
+                <tbody id="events-table-body">
+                    <!-- Wydarzenia będą dodane dynamicznie -->
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

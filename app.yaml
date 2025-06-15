@@ -1,0 +1,16 @@
+runtime: nodejs20
+instance_class: F2
+
+env_variables:
+  BIGQUERY_DATASET: events_dataset
+  BIGQUERY_TABLE: events
+
+handlers:
+  - url: /(.*\.(html|css|js|png|jpg|svg|ico))
+    static_files: frontend/\1
+    upload: frontend/(.*\.(html|css|js|png|jpg|svg|ico))
+    secure: always
+
+  - url: /.*
+    script: auto
+    secure: always
