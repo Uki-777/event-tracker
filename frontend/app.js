@@ -3,57 +3,77 @@ const API_URL_ANALYTICS = window.location.origin + '/analytics';
 
 // Elementy DOM
 const eventForm = document.getElementById('event-form');
-const eventsTable = document.getElementById('events-table')?.getElementsByTagName('tbody')[0];
-const eventsChart = document.getElementById('events-chart');
-const locationsChart = document.getElementById('locations-chart');
+const eventsTableBody = document.getElementById('events-table-body');
+const eventsOverTimeChart = document.getElementById('events-over-time-chart');
+const topLocationsChart = document.getElementById('top-locations-chart');
 const categoriesChart = document.getElementById('categories-chart');
 
 // Inicjalizacja wykresów
-const initCharts = () => {
-    return {
-        eventsChart: eventsChart && new Chart(eventsChart, {
+let charts = {
+    eventsOverTimeChart: null,
+    topLocationsChart: null,
+    categoriesChart: null
+};
+
+const initCharts = (eventsData) => {
+    // Przygotowanie danych dla wykresów
+    const eventsByDate = groupEventsByDate(eventsData);
+    const eventsByLocation = groupEventsByLocation(eventsData);
+    const eventsByCategory = groupEventsByCategory(eventsData);
+
+    // Wykres 1
+    if (eventsOverTimeChart) {
+        charts.eventsOverTimeChart = new Chart(eventsOverTimeChart, {
             type: 'line',
-            data: { 
-                labels: [], 
-                datasets: [{ 
-                    label: 'Liczba wydarzeń', 
-                    data: [], 
-                    borderColor: '#3e95cd', 
+            data: {
+                labels: Object.keys(eventsByDate),
+                datasets: [{
+                    label: 'Liczba wydarzeń',
+                    data: Object.values(eventsByDate),
+                    borderColor: '#3e95cd',
                     fill: false,
                     tension: 0.1
-                }] 
+                }]
             },
             options: {
                 responsive: true,
                 scales: { y: { beginAtZero: true } }
             }
-        }),
-        locationsChart: locationsChart && new Chart(locationsChart, {
+        });
+    }
+
+    // Wykres 2
+    if (topLocationsChart) {
+        charts.topLocationsChart = new Chart(topLocationsChart, {
             type: 'bar',
-            data: { 
-                labels: [], 
-                datasets: [{ 
-                    label: 'Lokalizacje', 
-                    data: [], 
-                    backgroundColor: '#8e5ea2' 
-                }] 
+            data: {
+                labels: Object.keys(eventsByLocation),
+                datasets: [{
+                    label: 'Liczba wydarzeń',
+                    data: Object.values(eventsByLocation),
+                    backgroundColor: '#8e5ea2'
+                }]
             },
             options: {
                 responsive: true,
                 scales: { y: { beginAtZero: true } }
             }
-        }),
-        categoriesChart: categoriesChart && new Chart(categoriesChart, {
+        });
+    }
+
+    // Wykres 3
+    if (categoriesChart) {
+        charts.categoriesChart = new Chart(categoriesChart, {
             type: 'doughnut',
-            data: { 
-                labels: [], 
-                datasets: [{ 
-                    data: [], 
+            data: {
+                labels: Object.keys(eventsByCategory),
+                datasets: [{
+                    data: Object.values(eventsByCategory),
                     backgroundColor: [
                         '#3cba9f', '#e8c3b9', '#c45850', 
                         '#3e95cd', '#8e5ea2', '#1e7145'
-                    ] 
-                }] 
+                    ]
+                }]
             },
             options: {
                 responsive: true,
@@ -61,11 +81,53 @@ const initCharts = () => {
                     legend: { position: 'right' }
                 }
             }
-        })
-    };
+        });
+    }
 };
 
-let charts = initCharts();
+// Funkcje pomocnicze do grupowania danych
+const groupEventsByDate = (events) => {
+    const grouped = {};
+    events.forEach(event => {
+        try {
+            const dateValue = event.date?.value;
+            if (!dateValue) return;
+            
+            const dateObj = new Date(dateValue);
+            if (isNaN(dateObj.getTime())) {
+                console.warn('Nieprawidłowa data:', dateValue);
+                return;
+            }
+            
+            // Format daty: DD.MM.YYYY
+            const date = dateObj.toLocaleDateString('pl-PL', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+            grouped[date] = (grouped[date] || 0) + 1;
+        } catch (e) {
+            console.error('Błąd przetwarzania daty:', e);
+        }
+    });
+    return grouped;
+};
+
+const groupEventsByLocation = (events) => {
+    const grouped = {};
+    events.forEach(event => {
+        grouped[event.location] = (grouped[event.location] || 0) + 1;
+    });
+    return grouped;
+};
+
+const groupEventsByCategory = (events) => {
+    const grouped = {};
+    events.forEach(event => {
+        grouped[event.category] = (grouped[event.category] || 0) + 1;
+    });
+    return grouped;
+};
 
 // Pobierz i zaktualizuj dane
 const fetchData = async () => {
@@ -75,87 +137,89 @@ const fetchData = async () => {
             fetch(API_URL_ANALYTICS)
         ]);
         
-        if (!eventsResponse.ok) {
-            const errorText = await eventsResponse.text();
-            throw new Error(`Błąd pobierania wydarzeń: ${eventsResponse.status} - ${errorText}`);
-        }
-        
-        if (!analyticsResponse.ok) {
-            const errorText = await analyticsResponse.text();
-            throw new Error(`Błąd pobierania analityki: ${analyticsResponse.status} - ${errorText}`);
+        if (!eventsResponse.ok || !analyticsResponse.ok) {
+            throw new Error('Błąd pobierania danych');
         }
         
         const events = await eventsResponse.json();
         const analytics = await analyticsResponse.json();
         
-        // DEBUG: Wyświetl dane analityczne w konsoli
-        console.log('Analytics data:', analytics);
-        
-        if (eventsTable) {
-            updateEventsTable(events);
+        updateEventsTable(events);
+        if (events.length > 0) {
+            initCharts(events);
         }
-        
-        updateCharts(analytics);
     } catch (error) {
         console.error('Błąd pobierania danych:', error);
-        alert('Problem z połączeniem z serwerem: ' + error.message);
+        // alert('Problem z połączeniem z serwerem');
     }
 };
 
-// Aktualizuj tabelę wydarzeń
+// Aktualizuj tabelę wydarzeń z przyciskami usuwania
 const updateEventsTable = (events) => {
-    if (!eventsTable) return;
+    if (!eventsTableBody) return;
     
-    eventsTable.innerHTML = '';
+    eventsTableBody.innerHTML = '';
     
     if (!events || events.length === 0) {
-        const row = eventsTable.insertRow();
-        const cell = row.insertCell(0);
-        cell.colSpan = 5;
-        cell.textContent = 'Brak wydarzeń do wyświetlenia';
-        cell.style.textAlign = 'center';
+        const row = document.createElement('tr');
+        row.innerHTML = '<td colspan="5" style="text-align: center;">Brak wydarzeń do wyświetlenia</td>';
+        eventsTableBody.appendChild(row);
         return;
     }
     
     events.forEach(event => {
-        const row = eventsTable.insertRow();
-        row.insertCell(0).textContent = event.name;
-        row.insertCell(1).textContent = event.location;
-        row.insertCell(2).textContent = new Date(event.date).toLocaleDateString('pl-PL', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
+        const row = document.createElement('tr');
+        const dateValue = event.date?.value;
+        let displayDate = 'Brak daty';
+        
+        if (dateValue) {
+            const dateObj = new Date(dateValue);
+            if (!isNaN(dateObj.getTime())) {
+                displayDate = dateObj.toLocaleDateString('pl-PL', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                });
+            }
+        }
+        
+        row.innerHTML = `
+            <td>${event.name}</td>
+            <td>${event.location}</td>
+            <td>${displayDate}</td>
+            <td>${event.category}</td>
+            <td><button class="delete-btn" data-id="${event.id}">Usuń</button></td>
+        `;
+        eventsTableBody.appendChild(row);
+    });
+
+// Dodaj event listeners do przycisków usuwania
+    document.querySelectorAll('.delete-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const eventId = e.target.getAttribute('data-id');
+            deleteEvent(eventId);
         });
-        row.insertCell(3).textContent = event.category;
-        row.insertCell(4).textContent = event.description || 'Brak opisu';
     });
 };
 
-// Aktualizuj wykresy - ZMIENIONA FUNKCJA
-const updateCharts = (analytics) => {
-    if (!analytics) return;
+// Funkcja do usuwania wydarzenia
+const deleteEvent = async (eventId) => {
+    if (!confirm('Czy na pewno chcesz usunąć to wydarzenie?')) return;
     
-    // 1. Wykres liniowy: wydarzenia w czasie
-    if (charts.eventsChart && analytics.eventsOverTime) {
-        charts.eventsChart.data.labels = analytics.eventsOverTime.dates || [];
-        charts.eventsChart.data.datasets[0].data = analytics.eventsOverTime.counts || [];
-        charts.eventsChart.update();
-    }
-    
-    // 2. Wykres słupkowy: top lokalizacje
-    if (charts.locationsChart && analytics.topLocations) {
-        charts.locationsChart.data.labels = analytics.topLocations.locations || [];
-        charts.locationsChart.data.datasets[0].data = analytics.topLocations.counts || [];
-        charts.locationsChart.update();
-    }
-    
-    // 3. Wykres kołowy: kategorie
-    if (charts.categoriesChart && analytics.categories) {
-        charts.categoriesChart.data.labels = analytics.categories.map(c => c.category) || [];
-        charts.categoriesChart.data.datasets[0].data = analytics.categories.map(c => c.count) || [];
-        charts.categoriesChart.update();
+    try {
+        const response = await fetch(`${API_URL_EVENTS}/${eventId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            alert('Wydarzenie zostało usunięte!');
+            fetchData();
+        } else {
+            throw new Error('Błąd podczas usuwania wydarzenia');
+        }
+    } catch (error) {
+        console.error('Błąd:', error);
+        alert(error.message);
     }
 };
 
@@ -173,7 +237,7 @@ if (eventForm) {
         };
         
         if (!eventData.name || !eventData.location || !eventData.date || !eventData.category) {
-            alert('Proszę wypełnić wszystkie wymagane pola (nazwa, lokalizacja, data, kategoria)');
+            alert('Proszę wypełnić wszystkie wymagane pola');
             return;
         }
         
@@ -187,14 +251,13 @@ if (eventForm) {
             if (response.ok) {
                 alert('Wydarzenie dodane pomyślnie!');
                 eventForm.reset();
-                setTimeout(fetchData, 1000);
+                fetchData();
             } else {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `Błąd serwera: ${response.status}`);
+                throw new Error('Błąd podczas dodawania wydarzenia');
             }
         } catch (error) {
             console.error('Błąd:', error);
-            alert('Błąd podczas dodawania wydarzenia: ' + error.message);
+            alert(error.message);
         }
     });
 }
@@ -204,13 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dateInput = document.getElementById('event-date');
     if (dateInput) {
         const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        
-        dateInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+        dateInput.value = now.toISOString().slice(0, 16);
     }
     
     fetchData();
