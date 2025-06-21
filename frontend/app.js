@@ -129,7 +129,6 @@ const groupEventsByCategory = (events) => {
     return grouped;
 };
 
-// Pobierz i zaktualizuj dane
 const fetchData = async () => {
     try {
         const [eventsResponse, analyticsResponse] = await Promise.all([
@@ -154,7 +153,7 @@ const fetchData = async () => {
     }
 };
 
-// Aktualizuj tabelę wydarzeń z przyciskami usuwania
+// Aktualizacja tabeli wydarzeń
 const updateEventsTable = (events) => {
     if (!eventsTableBody) return;
     
@@ -193,7 +192,6 @@ const updateEventsTable = (events) => {
         eventsTableBody.appendChild(row);
     });
 
-// Dodaj event listeners do przycisków usuwania
     document.querySelectorAll('.delete-btn').forEach(button => {
         button.addEventListener('click', (e) => {
             const eventId = e.target.getAttribute('data-id');

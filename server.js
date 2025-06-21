@@ -56,7 +56,7 @@ app.delete('/events/:id', async (req, res) => {
 
     const [job] = await bigquery.createQueryJob({
       query,
-      location: 'US', // ZMIEŃ na 'EU' jeśli dane są w europejskim regionie
+      location: 'US',
       params: { id: eventId },
       types: { id: 'STRING' }
     });
